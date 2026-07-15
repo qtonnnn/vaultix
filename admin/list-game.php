@@ -102,7 +102,7 @@ $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
                             <?php foreach ($game as $g): ?>
                             <?php 
                                 $id_g = $g['id_game'];
-                                $jumlah_akun = query("SELECT COUNT(*) as total FROM akun WHERE id_game = $id_g")[0]['total'];
+                                $jumlah_akun = query_prepare("SELECT COUNT(*) as total FROM akun WHERE id_game = ?", [$id_g])[0]['total'];
                             ?>
                             <tr>
                                 <td class="ps-4 text-center text-muted fw-bold small"><?= $g['id_game'] ?></td>

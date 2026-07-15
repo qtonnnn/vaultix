@@ -7,7 +7,8 @@ Repo adalah aplikasi PHP (server-rendered) untuk toko akun game. Setelah review 
 
 ## A. Bug / Issue Kritis
 
-### 1) SQL Injection (kritikal)
+### 1) SQL Injection (kritikal) [selesai]
+
 **Lokasi:**
 - `katalog.php`:
   ```php
@@ -55,7 +56,7 @@ Banyak output ditampilkan langsung tanpa `htmlspecialchars`, misalnya:
 
 ---
 
-### 3) Potensi error runtime di `detail.php`
+### 3) Potensi error runtime di `detail.php` [selesai]
 - Akses `$galeri[0]['foto']` tanpa cek apakah `$galeri` tidak kosong:
   ```php
   !empty($akun['foto']) ? $akun['foto'] : $galeri[0]['foto']
@@ -65,7 +66,7 @@ Banyak output ditampilkan langsung tanpa `htmlspecialchars`, misalnya:
 
 ---
 
-### 4) JavaScript `detail.php` tampak incomplete
+### 4) JavaScript `detail.php` tampak incomplete [selesai]
 Terlihat ada stub:
 ```js
 // ... fungsi openFullscreen ...
@@ -74,7 +75,7 @@ Jika implementasi `openFullscreen` dan error handling tidak ada di file final, k
 
 ---
 
-### 5) Minor markup issue di footer
+### 5) Minor markup issue di footer [selesai]
 `includes/footer.php` mengawali dengan `</main> <footer ...>` dalam satu baris.
 
 **Dampak:** bukan fatal, namun bisa menyebabkan layout/structure HTML kurang rapi.
@@ -82,7 +83,7 @@ Jika implementasi `openFullscreen` dan error handling tidak ada di file final, k
 ---
 
 ## B. Cacat Logika / Konsistensi
-
+ [selesai]
 ### 1) Logic stok hanya mempertimbangkan `tersedia`
 - `katalog.php` filter:
   ```php
@@ -95,6 +96,7 @@ Jika status lain (mis. pending/habis) ada di DB, UX mungkin tidak ideal.
 ---
 
 ### 2) Validasi input kurang
+[selesai]
 - `katalog.php` menerima `$_GET['game']` tanpa validasi.
 - `detail.php` menerima `$_GET['id']` tanpa validasi integer.
 
@@ -102,28 +104,29 @@ Jika status lain (mis. pending/habis) ada di DB, UX mungkin tidak ideal.
 
 ## C. Fungsi / Fitur yang Kurang
 
-### 1) Tidak ada pagination & pencarian
+### 1) Tidak ada pagination & pencarian [selesai]
 `katalog.php` menampilkan seluruh akun yang tersedia. Saat data besar, performa turun.
 
-### 2) Tidak ada sistem transaksi terstruktur
+### 2) Tidak ada sistem transaksi terstruktur [selesai]
 Admin dashboard terlihat punya tabel `pembelian` (diasumsikan), tetapi front-end tidak tampak memiliki proses pembelian selain redirect ke WhatsApp.
 
 ### 3) Validasi upload belum terlihat (kemungkinan ada di file admin lain)
 Folder `uploads/` ada, tapi validasi tipe/ukuran file belum terlihat pada bagian yang direview.
 
-### 4) Tidak ada rate limiting / proteksi brute force untuk admin login (belum dicek semua file admin)
+### 4) Tidak ada rate limiting / proteksi brute force untuk admin login (belum dicek semua file admin) [selesai]
 
 ---
 
 ## D. Redundansi / Kualitas Kode
 
 ### 1) Query `$pengaturan` berulang di header & footer
+[selesai]
 - `includes/header.php` query `pengaturan`.
 - `includes/footer.php` juga mencoba query lagi bila `$pengaturan` belum ada.
 
 Ini bisa dipangkas agar lebih efisien dan konsisten.
 
-### 2) `display_errors` di beberapa halaman
+### 2) `display_errors` di beberapa halaman [selesai]
 Contoh `index.php` mengaktifkan:
 ```php
 ini_set('display_errors', 1);
@@ -141,7 +144,7 @@ error_reporting(E_ALL);
 1. Ganti SQL raw dengan prepared statements.
 2. Escape semua output HTML (XSS).
 3. Validasi integer untuk `$_GET['id']` dan `$_GET['game']`.
-4. Perbaiki `detail.php` agar aman ketika tabel `galeri` kosong.
+4. Perbaiki `detail.php` agar aman ketika tabel `galeri` kosong. [selesai]
 5. Pastikan fungsi JS untuk fullscreen benar-benar terdefinisi.
 
 ### P1 (Penting)

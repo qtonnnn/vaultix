@@ -1,11 +1,8 @@
 <?php
-// Pastikan variabel $pengaturan sudah tersedia (biasanya sudah di-query di header, 
-// tapi tetap aman jika di-query ulang atau dipastikan ada)
-if (!isset($pengaturan)) {
-    $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
-}
+// $pengaturan sudah di-set oleh includes/header.php — tidak perlu query ulang
 ?>
-    </main> <footer class="bg-dark text-white pt-5 pb-4 mt-5">
+    </main>
+    <footer class="bg-dark text-white pt-5 pb-4 mt-5">
         <div class="container text-md-left">
             <div class="row text-md-left">
                 

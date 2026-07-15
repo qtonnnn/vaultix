@@ -11,18 +11,18 @@ if (!isset($_SESSION['admin'])) {
 $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
 
 if (isset($_POST['simpan'])) {
-    $nama_game = $_POST['nama_game'];
+    $nama_game = mysqli_real_escape_string($koneksi, $_POST['nama_game']);
     
     if (empty($nama_game)) {
         $error = "Nama game tidak boleh kosong!";
     } else {
-        $cek = query("SELECT * FROM game WHERE nama_game = '$nama_game'");
+        $cek = query_prepare("SELECT * FROM game WHERE nama_game = ?", [$nama_game]);
         if (!empty($cek)) {
             $error = "Game dengan nama tersebut sudah ada!";
         } else {
             // Asumsi fungsi execute() tersedia di koneksi.php kamu
-            $sql = "INSERT INTO game (nama_game) VALUES ('$nama_game')";
-            if (execute($sql)) {
+            $sql = "INSERT INTO game (nama_game) VALUES (?)";
+            if (execute_prepare($sql, [$nama_game])) {
                 echo "<script>alert('Game berhasil ditambahkan!'); window.location='list-game.php';</script>";
                 exit;
             } else {

@@ -10,24 +10,36 @@ if (!isset($_SESSION['admin'])) {
 // Ambil pengaturan untuk brand
 $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
 
-// Logika Backend (Simpan, Hapus, Lunas) tetap sama seperti kode Anda
+// Proses Hapus (GET)
+if (isset($_GET['hapus'])) {
+    $id_hapus = (int)$_GET['hapus'];
+    execute_prepare("DELETE FROM pembelian WHERE id_pembelian = ?", [$id_hapus]);
+    echo "<script>location.href='pembelian.php';</script>";
+}
+
+// Proses Lunas (GET)
+if (isset($_GET['lunas'])) {
+    $id_lunas = (int)$_GET['lunas'];
+    execute_prepare("UPDATE pembelian SET status_bayar = 'sudah' WHERE id_pembelian = ?", [$id_lunas]);
+    echo "<script>location.href='pembelian.php';</script>";
+}
+
+// Simpan transaksi baru
 if (isset($_POST['simpan'])) {
-    $id_akun = $_POST['id_akun'];
+    $id_akun = (int)$_POST['id_akun'];
     $nama_pembeli = mysqli_real_escape_string($koneksi, $_POST['nama_pembeli']);
     $no_wa_pembeli = mysqli_real_escape_string($koneksi, $_POST['no_wa_pembeli']);
-    $status_bayar = $_POST['status_bayar'];
+    $status_bayar = mysqli_real_escape_string($koneksi, $_POST['status_bayar']);
     
     $sql = "INSERT INTO pembelian (id_akun, nama_pembeli, no_wa_pembeli, tanggal_beli, status_bayar) 
-            VALUES ('$id_akun', '$nama_pembeli', '$no_wa_pembeli', NOW(), '$status_bayar')";
-    execute($sql);
+            VALUES (?, ?, ?, NOW(), ?)";
+    execute_prepare($sql, [$id_akun, $nama_pembeli, $no_wa_pembeli, $status_bayar]);
     
     if ($status_bayar == 'sudah') {
-        execute("UPDATE akun SET status = 'terjual' WHERE id_akun = '$id_akun'");
+        execute_prepare("UPDATE akun SET status = 'terjual' WHERE id_akun = ?", [$id_akun]);
     }
     echo "<script>alert('Transaksi berhasil dicatat!'); location.href='pembelian.php';</script>";
 }
-
-// ... (Proses Hapus dan Lunas tetap menggunakan logika Anda) ...
 
 $pembelian = query("SELECT p.*, a.nama_akun, a.harga, g.nama_game 
                    FROM pembelian p

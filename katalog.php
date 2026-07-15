@@ -1,21 +1,59 @@
 <?php
 include 'includes/header.php';
 
-// Filter berdasarkan game
-$id_game = isset($_GET['game']) ? $_GET['game'] : '';
-$where = "WHERE a.status = 'tersedia'";
-if ($id_game != '') {
-    $where .= " AND a.id_game = '$id_game'";
+// Pagination
+$per_page = 12;
+$page = isset($_GET['halaman']) ? filter_var($_GET['halaman'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : 1;
+if ($page === false) $page = 1;
+$offset = ($page - 1) * $per_page;
+
+// Filter game
+$id_game = isset($_GET['game']) ? filter_var($_GET['game'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : 0;
+if ($id_game === false) $id_game = 0;
+
+// Pencarian
+$cari = isset($_GET['cari']) ? trim($_GET['cari']) : '';
+
+// Bangun WHERE dinamis
+$where = "WHERE 1=1";
+$params = [];
+
+if ($id_game > 0) {
+    $where .= " AND a.id_game = ?";
+    $params[] = $id_game;
+}
+if ($cari !== '') {
+    $where .= " AND a.nama_akun LIKE ?";
+    $params[] = "%$cari%";
 }
 
-$semua_akun = query("SELECT a.*, g.nama_game 
+// Hitung total
+$total = query_prepare("SELECT COUNT(*) as total FROM akun a $where", $params);
+$total_akun = $total ? (int)$total[0]['total'] : 0;
+$total_halaman = max(1, ceil($total_akun / $per_page));
+
+// Ambil data halaman ini
+$semua_akun = query_prepare("SELECT a.*, g.nama_game 
                     FROM akun a 
                     JOIN game g ON a.id_game = g.id_game 
                     $where 
-                    ORDER BY a.harga ASC");
+                    ORDER BY a.status ASC, a.harga ASC 
+                    LIMIT ? OFFSET ?", array_merge($params, [$per_page, $offset]));
 
 // Ambil semua game untuk filter
 $semua_game = query("SELECT * FROM game ORDER BY nama_game");
+
+// Helper build URL dengan parameter existing
+function buildUrl($params_override = []) {
+    $existing = [];
+    if (isset($_GET['game']) && $_GET['game'] !== '') $existing['game'] = (int)$_GET['game'];
+    if (isset($_GET['cari']) && trim($_GET['cari']) !== '') $existing['cari'] = trim($_GET['cari']);
+    foreach ($params_override as $k => $v) {
+        if ($v === '' || $v === null || $v === false) unset($existing[$k]);
+        else $existing[$k] = $v;
+    }
+    return '?' . http_build_query($existing);
+}
 ?>
 
 <style>
@@ -95,15 +133,21 @@ $semua_game = query("SELECT * FROM game ORDER BY nama_game");
                     <div class="col-auto">
                         <label class="fw-bold small text-uppercase">Filter Game:</label>
                     </div>
-                    <div class="col">
+                    <div class="col-4">
                         <select name="game" onchange="this.form.submit()" class="form-select border-0 bg-light">
                             <option value="">Semua Game</option>
                             <?php foreach ($semua_game as $game): ?>
-                                <option value="<?= $game['id_game'] ?>" <?= ($id_game == $game['id_game']) ? 'selected' : '' ?>>
+                                <option value="<?= $game['id_game'] ?>" <?= ($id_game === (int)$game['id_game']) ? 'selected' : '' ?>>
                                     <?= $game['nama_game'] ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+                    <div class="col">
+                        <div class="input-group">
+                            <input type="search" name="cari" class="form-control border-0 bg-light" placeholder="Cari akun..." value="<?= htmlspecialchars($cari, ENT_QUOTES) ?>">
+                            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -113,8 +157,8 @@ $semua_game = query("SELECT * FROM game ORDER BY nama_game");
     <?php if (empty($semua_akun)): ?>
         <div class="text-center py-5">
             <i class="bi bi-emoji-frown display-1 text-muted"></i>
-            <h4 class="mt-3 text-muted">Saat ini akun pada game ini tidak tersedia</h4>
-            <p>Coba pilih filter game lain atau hubungi admin.</p>
+            <h4 class="mt-3 text-muted">Belum ada akun ditemukan</h4>
+            <p>Coba ubah filter atau kata pencarian.</p>
             <a href="katalog.php" class="btn btn-primary rounded-pill px-4">Reset Filter</a>
         </div>
     <?php else: ?>
@@ -159,8 +203,27 @@ $semua_game = query("SELECT * FROM game ORDER BY nama_game");
             <?php endforeach; ?>
         </div>
         
-        <div class="mt-5 p-3 bg-light rounded-3 text-center border">
-            <span class="text-muted">Menampilkan <strong><?= count($semua_akun) ?></strong> akun yang siap diangkut! 🚀</span>
+        <!-- Info & Pagination -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mt-5 p-3 bg-light rounded-3 border">
+            <span class="text-muted mb-2 mb-md-0">Menampilkan <strong><?= count($semua_akun) ?></strong> dari <strong><?= $total_akun ?></strong> akun</span>
+            
+            <?php if ($total_halaman > 1): ?>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                        <a class="page-link" href="<?= buildUrl(['halaman' => $page - 1]) ?>">«</a>
+                    </li>
+                    <?php for ($i = 1; $i <= $total_halaman; $i++): ?>
+                        <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+                            <a class="page-link" href="<?= buildUrl(['halaman' => $i]) ?>"><?= $i ?></a>
+                        </li>
+                    <?php endfor; ?>
+                    <li class="page-item <?= $page >= $total_halaman ? 'disabled' : '' ?>">
+                        <a class="page-link" href="<?= buildUrl(['halaman' => $page + 1]) ?>">»</a>
+                    </li>
+                </ul>
+            </nav>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </div>

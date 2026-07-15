@@ -1,9 +1,10 @@
 <?php
 include 'includes/header.php';
 
-// Query data akun
-$id = isset($_GET['id']) ? $_GET['id'] : 0;
-$akun = query("SELECT a.*, g.nama_game FROM akun a JOIN game g ON a.id_game = g.id_game WHERE a.id_akun = '$id'");
+// Query data akun — validasi integer positif
+$id = isset($_GET['id']) ? filter_var($_GET['id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : 0;
+if ($id === false) { $id = 0; }
+$akun = query_prepare("SELECT a.*, g.nama_game FROM akun a JOIN game g ON a.id_game = g.id_game WHERE a.id_akun = ?", [$id]);
 
 if (empty($akun)) {
     echo "<div class='container mt-5 text-center'><div class='alert alert-danger'>Akun tidak ditemukan.</div><a href='katalog.php' class='btn btn-primary'>Kembali ke Katalog</a></div>";
@@ -12,17 +13,10 @@ if (empty($akun)) {
 }
 
 $akun = $akun[0];
-$galeri = query("SELECT * FROM galeri WHERE id_akun = '$id'");
+$galeri = query_prepare("SELECT * FROM galeri WHERE id_akun = ?", [$id]);
 
-// Membuat pesan WhatsApp otomatis (versi lebih menarik)
-$message = "Halo min!%0A";
-$message .= "Saya tertarik membeli akun game berikut:%0A%0A";
-$message .= "Game       : " . $akun['nama_game'] . "%0A";
-$message .= "Nama Akun  : " . $akun['nama_akun'] . "%0A";
-$message .= "Harga      : " . rupiah($akun['harga']) . "%0A%0A";
-$message .= "Apakah akun ini masih tersedia? 🙏";
-
-$wa_link = "https://wa.me/" . formatWA($pengaturan['no_wa']) . "?text=" . $message;
+// Link checkout
+$checkout_link = "checkout.php?id=" . $akun['id_akun'];
 ?>
 
 <style>
@@ -91,19 +85,29 @@ $wa_link = "https://wa.me/" . formatWA($pengaturan['no_wa']) . "?text=" . $messa
         </ol>
     </nav>
 
+<?php
+// Tentukan foto utama aman — fallback ke galeri[0], lalu string kosong
+$foto_utama = $akun['foto'];
+if (empty($foto_utama) && !empty($galeri)) {
+    $foto_utama = $galeri[0]['foto'];
+}
+// Tentukan apakah ada foto sama sekali
+$punya_foto = !empty($foto_utama);
+?>
     <div class="detail-container">
         <div class="row g-0">
             <div class="col-lg-7">
                 <div class="position-relative">
-                    <img id="mainImage" src="uploads/<?= !empty($akun['foto']) ? $akun['foto'] : $galeri[0]['foto'] ?>" class="img-preview" alt="Akun" onclick="openFullscreen(this)">
+                    <img id="mainImage" src="uploads/<?= $foto_utama ?>" class="img-preview" alt="Akun" onclick="openFullscreen(this)">
                 </div>
                 
                 <div class="gallery-container">
-                    <?php if ($akun['foto']): ?>
-                        <img src="uploads/<?= $akun['foto'] ?>" class="gallery-thumb active" onclick="changeImage(this, 'uploads/<?= $akun['foto'] ?>')">
+                    <?php if ($punya_foto): ?>
+                        <img src="uploads/<?= $foto_utama ?>" class="gallery-thumb active" onclick="changeImage(this, 'uploads/<?= $foto_utama ?>')">
                     <?php endif; ?>
-                    <?php foreach ($galeri as $g): ?>
-                        <img src="uploads/<?= $g['foto'] ?>" class="gallery-thumb" onclick="changeImage(this, 'uploads/<?= $g['foto'] ?>')">
+                    <?php foreach ($galeri as $i => $g): ?>
+                        <?php $class = (!$punya_foto && $i === 0) ? 'gallery-thumb active' : 'gallery-thumb'; ?>
+                        <img src="uploads/<?= $g['foto'] ?>" class="<?= $class ?>" onclick="changeImage(this, 'uploads/<?= $g['foto'] ?>')">
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -134,9 +138,13 @@ $wa_link = "https://wa.me/" . formatWA($pengaturan['no_wa']) . "?text=" . $messa
 
                     <div class="mt-5 d-none d-md-block">
                         <?php if ($akun['status'] == 'tersedia'): ?>
-                            <a href="<?= $wa_link ?>" class="btn btn-success w-100 py-3 fw-bold shadow-sm rounded-3" target="_blank">
+                            <a href="<?= $checkout_link ?>" class="btn btn-success w-100 py-3 fw-bold shadow-sm rounded-3">
                                 <i class="bi bi-whatsapp me-2"></i> BELI SEKARANG
                             </a>
+                        <?php else: ?>
+                            <button disabled class="btn btn-secondary w-100 py-3 fw-bold shadow-sm rounded-3">
+                                <i class="bi bi-lock me-2"></i> AKUN SUDAH TERJUAL
+                            </button>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -151,11 +159,13 @@ $wa_link = "https://wa.me/" . formatWA($pengaturan['no_wa']) . "?text=" . $messa
         <strong><?= rupiah($akun['harga']) ?></strong>
     </div>
     <?php if ($akun['status'] == 'tersedia'): ?>
-        <a href="<?= $wa_link ?>" class="btn btn-success btn-buy-mobile" target="_blank">
+        <a href="<?= $checkout_link ?>" class="btn btn-success btn-buy-mobile">
             <i class="bi bi-whatsapp"></i> Beli
         </a>
     <?php else: ?>
-        <button disabled class="btn btn-secondary btn-buy-mobile text-white">Terjual</button>
+        <button disabled class="btn btn-secondary btn-buy-mobile text-white">
+            <i class="bi bi-lock"></i> Terjual
+        </button>
     <?php endif; ?>
 </div>
 
@@ -165,7 +175,16 @@ function changeImage(thumbnail, src) {
     document.querySelectorAll('.gallery-thumb').forEach(img => img.classList.remove('active'));
     thumbnail.classList.add('active');
 }
-// ... fungsi openFullscreen ...
+
+function openFullscreen(img) {
+    if (img.requestFullscreen) {
+        img.requestFullscreen();
+    } else if (img.webkitRequestFullscreen) {
+        img.webkitRequestFullscreen();
+    } else if (img.msRequestFullscreen) {
+        img.msRequestFullscreen();
+    }
+}
 </script>
 
 <?php include 'includes/footer.php'; ?>

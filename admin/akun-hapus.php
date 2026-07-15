@@ -7,10 +7,10 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-$id = $_GET['id'];
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 // Ambil data akun untuk hapus foto
-$akun = query("SELECT * FROM akun WHERE id_akun = '$id'");
+$akun = query_prepare("SELECT * FROM akun WHERE id_akun = ?", [$id]);
 if (!empty($akun) && $akun[0]['foto'] != '') {
     $foto = $akun[0]['foto'];
     if (file_exists('../uploads/' . $foto)) {
@@ -18,8 +18,12 @@ if (!empty($akun) && $akun[0]['foto'] != '') {
     }
 }
 
+// Hapus galeri & pembelian terkait
+execute_prepare("DELETE FROM galeri WHERE id_akun = ?", [$id]);
+execute_prepare("DELETE FROM pembelian WHERE id_akun = ?", [$id]);
+
 // Hapus dari database
-execute("DELETE FROM akun WHERE id_akun = '$id'");
+execute_prepare("DELETE FROM akun WHERE id_akun = ?", [$id]);
 
 header('Location: akun.php');
 exit;

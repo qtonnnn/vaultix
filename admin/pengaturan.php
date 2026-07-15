@@ -16,13 +16,13 @@ if (isset($_POST['simpan'])) {
     $email = mysqli_real_escape_string($koneksi, $_POST['email']);
     
     $sql = "UPDATE pengaturan SET 
-            nama_toko = '$nama_toko',
-            slogan = '$slogan',
-            no_wa = '$no_wa',
-            email = '$email'
+            nama_toko = ?,
+            slogan = ?,
+            no_wa = ?,
+            email = ?
             WHERE id_pengaturan = 1";
     
-    if (execute($sql)) {
+    if (execute_prepare($sql, [$nama_toko, $slogan, $no_wa, $email])) {
         $success = "Pengaturan berhasil diperbarui!";
         $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
     } else {

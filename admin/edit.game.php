@@ -13,8 +13,8 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
     exit;
 }
 
-$id_game = $_GET['id'];
-$game = query("SELECT * FROM game WHERE id_game = $id_game");
+$id_game = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$game = query_prepare("SELECT * FROM game WHERE id_game = ?", [$id_game]);
 
 if (empty($game)) {
     header('Location: list-game.php');
@@ -24,7 +24,7 @@ if (empty($game)) {
 $game = $game[0];
 
 // Ambil pengaturan untuk brand
-$pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
+$pengaturan = query_prepare("SELECT * FROM pengaturan WHERE id_pengaturan = ?", [1])[0];
 
 if (isset($_POST['update'])) {
     $nama_game = $_POST['nama_game'];
@@ -32,12 +32,12 @@ if (isset($_POST['update'])) {
     if (empty($nama_game)) {
         $error = "Nama game tidak boleh kosong!";
     } else {
-        $cek = query("SELECT * FROM game WHERE nama_game = '$nama_game' AND id_game != $id_game");
+        $cek = query_prepare("SELECT * FROM game WHERE nama_game = ? AND id_game != ?", [$nama_game, $id_game]);
         if (!empty($cek)) {
             $error = "Game dengan nama tersebut sudah ada!";
         } else {
-            $sql = "UPDATE game SET nama_game = '$nama_game' WHERE id_game = $id_game";
-            if (execute($sql)) {
+            $sql = "UPDATE game SET nama_game = ? WHERE id_game = ?";
+            if (execute_prepare($sql, [$nama_game, $id_game])) {
                 echo "<script>alert('Game berhasil diupdate!'); window.location='list-game.php';</script>";
                 exit;
             } else {

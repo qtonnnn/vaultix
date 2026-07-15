@@ -11,11 +11,11 @@ $game = query("SELECT * FROM game ORDER BY nama_game");
 $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
 
 if (isset($_POST['simpan'])) {
-    $id_game = $_POST['id_game'];
+    $id_game = (int)$_POST['id_game'];
     $nama_akun = mysqli_real_escape_string($koneksi, $_POST['nama_akun']);
     $spesifikasi = mysqli_real_escape_string($koneksi, $_POST['spesifikasi']);
-    $harga = $_POST['harga'];
-    $status = $_POST['status'];
+    $harga = (int)$_POST['harga'];
+    $status = mysqli_real_escape_string($koneksi, $_POST['status']);
     
     // Upload foto utama
     $foto = '';
@@ -25,9 +25,9 @@ if (isset($_POST['simpan'])) {
     }
     
     $sql = "INSERT INTO akun (id_game, nama_akun, spesifikasi, harga, foto, status) 
-            VALUES ('$id_game', '$nama_akun', '$spesifikasi', '$harga', '$foto', '$status')";
+            VALUES (?, ?, ?, ?, ?, ?)";
     
-    if (execute($sql)) {
+    if (execute_prepare($sql, [$id_game, $nama_akun, $spesifikasi, $harga, $foto, $status])) {
         $id_akun = mysqli_insert_id($koneksi);
         
         // Upload foto galeri
@@ -36,7 +36,7 @@ if (isset($_POST['simpan'])) {
                 if ($_FILES['galeri']['name'][$key] != '') {
                     $nama_galeri = time() . '_' . $key . '_' . $_FILES['galeri']['name'][$key];
                     move_uploaded_file($_FILES['galeri']['tmp_name'][$key], '../uploads/' . $nama_galeri);
-                    execute("INSERT INTO galeri (id_akun, foto) VALUES ('$id_akun', '$nama_galeri')");
+                    execute_prepare("INSERT INTO galeri (id_akun, foto) VALUES (?, ?)", [$id_akun, $nama_galeri]);
                 }
             }
         }

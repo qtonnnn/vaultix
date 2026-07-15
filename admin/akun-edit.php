@@ -7,8 +7,8 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-$id = $_GET['id'];
-$akun = query("SELECT * FROM akun WHERE id_akun = '$id'");
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$akun = query_prepare("SELECT * FROM akun WHERE id_akun = ?", [$id]);
 if (empty($akun)) {
     header('Location: akun.php');
     exit;
@@ -16,29 +16,29 @@ if (empty($akun)) {
 $akun = $akun[0];
 
 $game = query("SELECT * FROM game ORDER BY nama_game");
-$galeri = query("SELECT * FROM galeri WHERE id_akun = '$id'");
+$galeri = query_prepare("SELECT * FROM galeri WHERE id_akun = ?", [$id]);
 $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
 
 // Handle hapus foto galeri
 if (isset($_GET['hapus_galeri'])) {
-    $id_galeri = $_GET['hapus_galeri'];
-    $foto_galeri = query("SELECT foto FROM galeri WHERE id_galeri = '$id_galeri'");
+    $id_galeri = (int)$_GET['hapus_galeri'];
+    $foto_galeri = query_prepare("SELECT foto FROM galeri WHERE id_galeri = ?", [$id_galeri]);
     if (!empty($foto_galeri)) {
         $nama_foto = $foto_galeri[0]['foto'];
         if (file_exists('../uploads/' . $nama_foto)) {
             unlink('../uploads/' . $nama_foto);
         }
-        execute("DELETE FROM galeri WHERE id_galeri = '$id_galeri'");
+        execute_prepare("DELETE FROM galeri WHERE id_galeri = ?", [$id_galeri]);
     }
     echo "<script>window.location='akun-edit.php?id=$id';</script>";
     exit;
 }
 
 if (isset($_POST['update'])) {
-    $id_game = $_POST['id_game'];
-    $nama_akun = mysqli_real_escape_string($koneksi, $_POST['nama_akun']);
-    $spesifikasi = mysqli_real_escape_string($koneksi, $_POST['spesifikasi']);
-    $harga = $_POST['harga'];
+    $id_game = (int)$_POST['id_game'];
+    $nama_akun = $_POST['nama_akun'];
+    $spesifikasi = $_POST['spesifikasi'];
+    $harga = (int)$_POST['harga'];
     $status = $_POST['status'];
     
     $foto = $akun['foto'];
@@ -51,21 +51,21 @@ if (isset($_POST['update'])) {
     }
     
     $sql = "UPDATE akun SET 
-            id_game = '$id_game',
-            nama_akun = '$nama_akun',
-            spesifikasi = '$spesifikasi',
-            harga = '$harga',
-            foto = '$foto',
-            status = '$status'
-            WHERE id_akun = '$id'";
+            id_game = ?,
+            nama_akun = ?,
+            spesifikasi = ?,
+            harga = ?,
+            foto = ?,
+            status = ?
+            WHERE id_akun = ?";
     
-    if (execute($sql)) {
+    if (execute_prepare($sql, [$id_game, $nama_akun, $spesifikasi, $harga, $foto, $status, $id])) {
         if (!empty($_FILES['galeri']['name'][0])) {
             foreach ($_FILES['galeri']['name'] as $key => $nama_file) {
                 if ($_FILES['galeri']['name'][$key] != '') {
                     $nama_galeri = time() . '_' . $key . '_' . $_FILES['galeri']['name'][$key];
                     move_uploaded_file($_FILES['galeri']['tmp_name'][$key], '../uploads/' . $nama_galeri);
-                    execute("INSERT INTO galeri (id_akun, foto) VALUES ('$id', '$nama_galeri')");
+                    execute_prepare("INSERT INTO galeri (id_akun, foto) VALUES (?, ?)", [$id, $nama_galeri]);
                 }
             }
         }

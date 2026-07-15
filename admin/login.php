@@ -7,23 +7,93 @@ if (isset($_SESSION['admin'])) {
     exit;
 }
 
+// Rate limiting — max 5 percobaan per 15 menit per IP
+define('LOGIN_ATTEMPTS_FILE', __DIR__ . '/../config/login_attempts.json');
+define('MAX_ATTEMPTS', 5);
+define('LOCKOUT_MINUTES', 15);
+
+function checkRateLimit() {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $now = time();
+    $data = [];
+    if (file_exists(LOGIN_ATTEMPTS_FILE)) {
+        $data = json_decode(file_get_contents(LOGIN_ATTEMPTS_FILE), true) ?: [];
+    }
+    // Bersihkan data expired
+    $data = array_filter($data, function($entry) use ($now) {
+        return ($now - $entry['time']) < LOCKOUT_MINUTES * 60;
+    });
+    // Hitung percobaan IP ini
+    $count = 0;
+    foreach ($data as $entry) {
+        if ($entry['ip'] === $ip) $count++;
+    }
+    if ($count >= MAX_ATTEMPTS) {
+        // Cari waktu percobaan tertua dari IP ini
+        $oldest = $now;
+        foreach ($data as $entry) {
+            if ($entry['ip'] === $ip && $entry['time'] < $oldest) {
+                $oldest = $entry['time'];
+            }
+        }
+        $wait = LOCKOUT_MINUTES - floor(($now - $oldest) / 60);
+        if ($wait < 0) $wait = 0;
+        if ($wait === 0) return null; // sudah lewat waktu lockout, reset
+        return 'Terlalu banyak percobaan login. Coba lagi dalam ' . $wait . ' menit.';
+    }
+    return null;
+}
+
+function recordAttempt() {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $data = [];
+    if (file_exists(LOGIN_ATTEMPTS_FILE)) {
+        $data = json_decode(file_get_contents(LOGIN_ATTEMPTS_FILE), true) ?: [];
+    }
+    $data[] = ['ip' => $ip, 'time' => time()];
+    // Simpan maks 100 entry terbaru
+    if (count($data) > 100) {
+        $data = array_slice($data, -100);
+    }
+    file_put_contents(LOGIN_ATTEMPTS_FILE, json_encode($data), LOCK_EX);
+}
+
+function clearAttempts() {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $data = [];
+    if (file_exists(LOGIN_ATTEMPTS_FILE)) {
+        $data = json_decode(file_get_contents(LOGIN_ATTEMPTS_FILE), true) ?: [];
+    }
+    $data = array_filter($data, function($entry) use ($ip) {
+        return $entry['ip'] !== $ip;
+    });
+    file_put_contents(LOGIN_ATTEMPTS_FILE, json_encode($data), LOCK_EX);
+}
+
 // Ambil pengaturan
 $pengaturan = query("SELECT * FROM pengaturan WHERE id_pengaturan = 1")[0];
 
 if (isset($_POST['login'])) {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-    
-    // Catatan: Sebaiknya gunakan password_verify di masa depan untuk keamanan ekstra
-    $admin = query("SELECT * FROM admin WHERE username = '$username' AND password = '$password'");
-    
-    if (!empty($admin)) {
-        $_SESSION['admin'] = $admin[0]['id_admin'];
-        $_SESSION['username'] = $admin[0]['username'];
-        header('Location: index.php');
-        exit;
+    // Cek rate limit
+    $rateError = checkRateLimit();
+    if ($rateError) {
+        $error = $rateError;
     } else {
-        $error = "Username atau password salah!";
+        $username = $_POST['username'];
+        $password = $_POST['password'];
+        
+        $admin = query_prepare("SELECT * FROM admin WHERE username = ? AND password = ?", [$username, $password]);
+        
+        if (!empty($admin)) {
+            clearAttempts();
+            $_SESSION['admin'] = $admin[0]['id_admin'];
+            $_SESSION['username'] = $admin[0]['username'];
+            header('Location: index.php');
+            exit;
+        } else {
+            recordAttempt();
+            $error = "Username atau password salah!";
+        }
     }
 }
 ?>

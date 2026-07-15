@@ -29,6 +29,76 @@ function execute($sql) {
     return mysqli_query($koneksi, $sql);
 }
 
+// Prepared statement versions of query/execute
+function query_prepare($sql, $params = []) {
+    global $koneksi;
+    $stmt = mysqli_prepare($koneksi, $sql);
+    if (!$stmt) {
+        error_log("SQL prepare error: " . mysqli_error($koneksi));
+        return [];
+    }
+    if ($params) {
+        $types = '';
+        $bindParams = [];
+        foreach ($params as $p) {
+            if (is_int($p)) {
+                $types .= 'i';
+            } elseif (is_float($p)) {
+                $types .= 'd';
+            } else {
+                $types .= 's';
+            }
+            $bindParams[] = $p;
+        }
+        $bindRefs = [$stmt, $types];
+        foreach ($bindParams as $i => $v) {
+            $bindRefs[] = &$bindParams[$i];
+        }
+        call_user_func_array('mysqli_stmt_bind_param', $bindRefs);
+    }
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $rows = [];
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $rows[] = $row;
+        }
+    }
+    mysqli_stmt_close($stmt);
+    return $rows;
+}
+
+function execute_prepare($sql, $params = []) {
+    global $koneksi;
+    $stmt = mysqli_prepare($koneksi, $sql);
+    if (!$stmt) {
+        error_log("SQL prepare error: " . mysqli_error($koneksi));
+        return false;
+    }
+    if ($params) {
+        $types = '';
+        $bindParams = [];
+        foreach ($params as $p) {
+            if (is_int($p)) {
+                $types .= 'i';
+            } elseif (is_float($p)) {
+                $types .= 'd';
+            } else {
+                $types .= 's';
+            }
+            $bindParams[] = $p;
+        }
+        $bindRefs = [$stmt, $types];
+        foreach ($bindParams as $i => $v) {
+            $bindRefs[] = &$bindParams[$i];
+        }
+        call_user_func_array('mysqli_stmt_bind_param', $bindRefs);
+    }
+    $result = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    return $result;
+}
+
 // Format rupiah
 function rupiah($angka) {
     return 'Rp ' . number_format($angka, 0, ',', '.');

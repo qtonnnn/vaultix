@@ -13,10 +13,10 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
     exit;
 }
 
-$id_game = $_GET['id'];
+$id_game = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 // Cek apakah game ada
-$game = query("SELECT * FROM game WHERE id_game = $id_game");
+$game = query_prepare("SELECT * FROM game WHERE id_game = ?", [$id_game]);
 
 if (empty($game)) {
     header('Location: list-game.php');
@@ -26,26 +26,24 @@ if (empty($game)) {
 $game = $game[0];
 
 // Cek apakah ada akun yang menggunakan game ini
-$akun_terkait = query("SELECT COUNT(*) as total FROM akun WHERE id_game = $id_game")[0]['total'];
+$akun_terkait = query_prepare("SELECT COUNT(*) as total FROM akun WHERE id_game = ?", [$id_game])[0]['total'];
 
 if ($akun_terkait > 0) {
     // Jika ada akun terkait, hapus juga akun-akun tersebut
     // (sesuai dengan constraint foreign key, akun akan dihapus atau id_game di-set NULL)
     
     // Hapus galeri terkait akun
-    execute("DELETE FROM galeri WHERE id_akun IN (SELECT id_akun FROM akun WHERE id_game = $id_game)");
+    execute_prepare("DELETE FROM galeri WHERE id_akun IN (SELECT id_akun FROM akun WHERE id_game = ?)", [$id_game]);
     
     // Hapus pembelian terkait akun
-    execute("DELETE FROM pembelian WHERE id_akun IN (SELECT id_akun FROM akun WHERE id_game = $id_game)");
+    execute_prepare("DELETE FROM pembelian WHERE id_akun IN (SELECT id_akun FROM akun WHERE id_game = ?)", [$id_game]);
     
     // Hapus akun-akun terkait
-    execute("DELETE FROM akun WHERE id_game = $id_game");
+    execute_prepare("DELETE FROM akun WHERE id_game = ?", [$id_game]);
 }
 
 // Hapus game
-$sql = "DELETE FROM game WHERE id_game = $id_game";
-
-if (execute($sql)) {
+if (execute_prepare("DELETE FROM game WHERE id_game = ?", [$id_game])) {
     header('Location: list-game.php');
     exit;
 } else {
